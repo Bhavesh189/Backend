@@ -31,13 +31,14 @@ app.post("/ask", async (req, res) => {
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     
-    // FIX: Using the correct and recommended model name
+    // Using the correct and recommended model name
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     const result = await model.generateContent(question);
     const response = await result.response;
     
-    res.json({ reply: response.text });
+    // FIX HERE: .text() is a method, not a property
+    res.json({ reply: response.text() });
 
   } catch (err) {
     console.error("Error:", err);
