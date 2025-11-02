@@ -4,17 +4,12 @@ import bodyParser from "body-parser";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const app = express();
-app.use(cors());
+app.use(cors()); 
 app.use(bodyParser.json());
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 
-if (!geminiApiKey) {
-    console.error("FATAL ERROR: GEMINI_API_KEY is not set.");
-}
-
-const genAI = new GoogleGenerativeAI(geminiApiKey);
-
+// Root route for Vercel health check
 app.get("/", (req, res) => {
     res.send("👋 DocAna Backend is LIVE! Use the /ask endpoint to chat.");
 });
@@ -27,17 +22,26 @@ app.post("/ask", async (req, res) => {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const prompt = question;
+    if (!geminiApiKey) {
+        return res.status(500).json({ 
+            error: "Configuration Error",
+            details: "GEMINI_API_KEY environment variable is missing on Vercel."
+        });
+    }
 
-    const result = await model.generateContent(prompt);
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    
+    // FIX: Using the correct and recommended model name
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    
+    const result = await model.generateContent(question);
     const response = await result.response;
     
-    res.json({ reply: response.text() });
+    res.json({ reply: response.text });
 
   } catch (err) {
     console.error("Error:", err);
-    if (err.message.includes('API_KEY_INVALID')) {
+    if (err.message.includes('API_KEY_INVALID') || err.message.includes('API_KEY_MISSING')) {
          return res.status(401).json({ 
             error: "Authentication Error",
             details: "Invalid or unauthorized API Key. Check Vercel Environment Variables."
@@ -48,10 +52,6 @@ app.post("/ask", async (req, res) => {
       details: err.message 
     });
   }
-});
-
-app.get("/test", async (req, res) => {
-    res.status(200).send("Test route is functional.");
 });
 
 export default app;
