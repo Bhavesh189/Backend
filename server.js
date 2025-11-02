@@ -2,23 +2,22 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from 'dotenv';
-dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Initialize Gemini AI
-// Ensure GEMINI_API_KEY is available in the .env file
 const geminiApiKey = process.env.GEMINI_API_KEY;
 
 if (!geminiApiKey) {
-    console.error("FATAL ERROR: GEMINI_API_KEY is not set in the .env file.");
-    process.exit(1);
+    console.error("FATAL ERROR: GEMINI_API_KEY is not set.");
 }
 
 const genAI = new GoogleGenerativeAI(geminiApiKey);
+
+app.get("/", (req, res) => {
+    res.send("👋 DocAna Backend is LIVE! Use the /ask endpoint to chat.");
+});
 
 app.post("/ask", async (req, res) => {
   const { question } = req.body;
@@ -28,25 +27,22 @@ app.post("/ask", async (req, res) => {
   }
 
   try {
-    // Using gemini-2.5-flash for fast chat responses
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     const prompt = question;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     
-    // Check if response text is present
-    const replyText = response.text().trim();
-
-    if (!replyText) {
-        throw new Error("Gemini returned an empty response.");
-    }
-    
-    res.json({ reply: replyText });
+    res.json({ reply: response.text() });
 
   } catch (err) {
-    console.error("Gemini API Error:", err.message);
-    // Send a 500 status with the error details
+    console.error("Error:", err);
+    if (err.message.includes('API_KEY_INVALID')) {
+         return res.status(401).json({ 
+            error: "Authentication Error",
+            details: "Invalid or unauthorized API Key. Check Vercel Environment Variables."
+        });
+    }
     res.status(500).json({ 
       error: "AI Response Error",
       details: err.message 
@@ -54,13 +50,8 @@ app.post("/ask", async (req, res) => {
   }
 });
 
-// Test endpoint to check if the server is running (optional)
-app.get("/test", (req, res) => {
-    res.send("Backend server is running!");
+app.get("/test", async (req, res) => {
+    res.status(200).send("Test route is functional.");
 });
 
-// Server ko start karne ke liye: Yeh code missing tha
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server running successfully on http://localhost:${PORT}`);
-});
+export default app;
